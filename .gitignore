@@ -213,3 +213,5 @@ build/Release
 # Project specific
 build/
 dist/
+
+amazonCookies.json
