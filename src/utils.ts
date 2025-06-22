@@ -1,5 +1,5 @@
 import fs from 'fs'
-import puppeteer, { Page } from 'puppeteer'
+import puppeteer from 'puppeteer'
 import { COOKIES_FILE_PATH, AMAZON_COOKIES } from './config.js'
 
 /** Get the current timestamp like "2024-06-06_15-30-45" */
@@ -31,7 +31,7 @@ export function loadAmazonCookiesFile() {
   }
 }
 
-export async function createBrowserAndPage(): Promise<{ browser: puppeteer.Browser; page: Page }> {
+export async function createBrowserAndPage(): Promise<{ browser: puppeteer.Browser; page: puppeteer.Page }> {
   // Launch Puppeteer
   const browser = await puppeteer.launch({
     headless: false, // Set to true for production

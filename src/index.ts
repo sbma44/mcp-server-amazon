@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { getOrdersHistory } from './amazon.js'
+import { getOrdersHistory, getCartContent } from './amazon.js'
 
 // Create server instance
 const server = new McpServer({
@@ -13,13 +13,13 @@ server.tool('get-orders-history', 'Get orders history for a user', {}, async ({}
   let ordersHistory: Awaited<ReturnType<typeof getOrdersHistory>>
   try {
     ordersHistory = await getOrdersHistory()
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in get-orders-history tool:', error)
     return {
       content: [
         {
           type: 'text',
-          text: 'An error occurred while retrieving orders history.',
+          text: `An error occurred while retrieving orders history. Error: ${error.message}`,
         },
       ],
     }
@@ -41,6 +41,43 @@ server.tool('get-orders-history', 'Get orders history for a user', {}, async ({}
       {
         type: 'text',
         text: JSON.stringify(ordersHistory, null, 2),
+      },
+    ],
+  }
+})
+
+server.tool('get-cart-content', 'Get the current cart content for a user', {}, async ({}) => {
+  let cartContent: Awaited<ReturnType<typeof getCartContent>>
+  try {
+    cartContent = await getCartContent()
+  } catch (error: any) {
+    console.error('Error in get-cart-content tool:', error)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `An error occurred while retrieving cart content. Error: ${error.message}`,
+        },
+      ],
+    }
+  }
+
+  if (cartContent.isEmpty) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Your Amazon cart is empty.',
+        },
+      ],
+    }
+  }
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(cartContent, null, 2),
       },
     ],
   }

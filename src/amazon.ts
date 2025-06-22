@@ -10,7 +10,7 @@ export async function getOrdersHistory() {
   let html: string
   if (USE_MOCKS) {
     console.error('[INFO] Fetching orders history from mocks')
-    const mockPath = `${__dirname}/../mocks/ordersHistory.html`
+    const mockPath = `${__dirname}/../mocks/getOrdersHistory.html`
     html = fs.readFileSync(mockPath, 'utf-8')
   } else {
     const url = 'https://www.amazon.es/-/en/gp/css/order-history'
@@ -28,7 +28,7 @@ export async function getOrdersHistory() {
       if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
         // Export the current page content to a mock file
         const timestamp = getTimestamp()
-        const mockPath = `${__dirname}/../mocks/ordersHistory_${timestamp}.html`
+        const mockPath = `${__dirname}/../mocks/getOrdersHistory_${timestamp}.html`
         html = await page.content()
         fs.writeFileSync(mockPath, html)
         console.error(`[INFO] Exported live scraping HTML to ${mockPath}`)
@@ -132,5 +132,133 @@ async function throwIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
   const isLoginPage = (await page.$('#ap_email')) !== null || (await page.$('#signInSubmit')) !== null
   if (isLoginPage) {
     throw new Error('You need to be logged in to access this feature. Please log in to Amazon first and then try again.')
+  }
+}
+
+interface CartItem {
+  title: string
+  price: string
+  quantity: number
+  image?: string
+  productUrl?: string
+  asin?: string
+  availability: string
+  isSelected: boolean
+}
+
+interface CartContent {
+  isEmpty: boolean
+  items: CartItem[]
+  subtotal?: string
+  totalItems?: number
+}
+
+export async function getCartContent(): Promise<CartContent> {
+  let html: string
+  if (USE_MOCKS) {
+    console.error('[INFO] Fetching cart content from mocks')
+    const mockPath = `${__dirname}/../mocks/getCartContent.html`
+    html = fs.readFileSync(mockPath, 'utf-8')
+  } else {
+    const url = 'https://www.amazon.es/-/en/gp/cart/view.html?ref_=nav_cart'
+    console.error(`[INFO] Fetching cart content from ${url}`)
+
+    const { browser, page } = await createBrowserAndPage()
+
+    try {
+      // Navigate to the cart page
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+
+      // Handle login if needed
+      await throwIfNotLoggedIn(page)
+
+      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+        // Export the current page content to a mock file
+        const timestamp = getTimestamp()
+        const mockPath = `${__dirname}/../mocks/getCartContent_${timestamp}.html`
+        html = await page.content()
+        fs.writeFileSync(mockPath, html)
+        console.error(`[INFO] Exported live scraping HTML to ${mockPath}`)
+      }
+
+      // Wait for the cart content to load
+      try {
+        await page.waitForSelector('#sc-active-cart', { timeout: 10000 })
+      } catch (e) {
+        console.error('[INFO] Cart container not found immediately, proceeding with current content')
+      }
+
+      // Get the HTML content after JavaScript execution
+      html = await page.content()
+    } finally {
+      await browser.close()
+    }
+  }
+
+  const $ = cheerio.load(html)
+  return extractCartData($)
+}
+
+function extractCartData($: cheerio.CheerioAPI): CartContent {
+  const $cartContainer = $('#sc-active-cart')
+
+  // Check if cart is empty
+  const emptyCartText = $cartContainer.text()
+  if (emptyCartText.includes('Your Amazon Cart is empty')) {
+    return {
+      isEmpty: true,
+      items: [],
+    }
+  }
+
+  // Extract cart items
+  const items: CartItem[] = []
+  $cartContainer.find('[data-asin]').each((index, element) => {
+    const $item = $(element)
+
+    // Extract basic item information
+    const titleElement = $item.find('a.sc-product-title').first()
+    const title = titleElement.find('.a-truncate-full').text().trim()
+    const price = $item.find('.apex-price-to-pay-value .a-offscreen').text().trim()
+    const quantityElement = $item.find('[data-a-selector="value"]').text().trim()
+    const quantity = parseInt(quantityElement) || 1
+
+    // Extract optional information
+    const image = $item.find('.sc-product-image').attr('src')
+    const productUrl = $item.find('.sc-product-link').attr('href')
+    const asin = $item.attr('data-asin')
+    const availability = $item.find('.sc-product-availability').text().trim() || 'Unknown'
+    const isSelected = $item.find('input[type="checkbox"]').is(':checked')
+
+    console.error(`[INFO] Extracted item: ${title}, Price: ${price}, Quantity: ${quantity}, ASIN: ${asin}`)
+    // Only add items with valid titles and prices
+    if (title && price) {
+      items.push({
+        title,
+        price,
+        quantity,
+        image,
+        productUrl,
+        asin,
+        availability,
+        isSelected,
+      })
+    }
+  })
+
+  // Extract subtotal information
+  const subtotal =
+    $cartContainer.find('#sc-subtotal-amount-activecart .sc-price').text().trim() ||
+    $cartContainer.find('.sc-subtotal .sc-price').text().trim()
+
+  const totalItemsText = $cartContainer.find('#sc-subtotal-label-activecart').text().trim()
+  const totalItemsMatch = totalItemsText.match(/\((\d+)\s+item/)
+  const totalItems = totalItemsMatch ? parseInt(totalItemsMatch[1]) : items.length
+
+  return {
+    isEmpty: false,
+    items,
+    subtotal,
+    totalItems,
   }
 }
