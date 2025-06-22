@@ -1,32 +1,10 @@
 import * as cheerio from 'cheerio'
 import fs from 'fs'
-import puppeteer, { Page } from 'puppeteer'
+import puppeteer from 'puppeteer'
+import { USE_MOCKS, EXPORT_LIVE_SCRAPING_FOR_MOCKS } from './config.js'
+import { createBrowserAndPage, getTimestamp } from './utils.js'
 
 const __dirname = new URL('.', import.meta.url).pathname
-
-const USE_MOCKS = false // Set to true to use local mock file instead of live scraping
-
-const COOKIE_FILE_PATH = `${__dirname}/../amazonCookies.json`
-/**
- * Go to the Amazon website and log in to your account
- * Then export cookies as JSON using a browser extension like "Cookie-Editor"
- * and paste them in [amazonCookies.json](../amazonCookies.json)
- *
- * @see https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm?hl=fr
- */
-let AMAZON_COOKIES: {
-  domain: string
-  expirationDate: number
-  hostOnly: boolean
-  httpOnly: boolean
-  name: string
-  path: string
-  sameSite: 'Strict' | 'Lax' | 'None' | undefined
-  secure: boolean
-  session: boolean
-  storeId: string | null
-  value: string
-}[] = loadAmazonCookiesFile()
 
 export async function getOrdersHistory() {
   let html: string
@@ -46,6 +24,15 @@ export async function getOrdersHistory() {
 
       // Handle login if needed
       await exitIfNotLoggedIn(page)
+
+      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+        // Export the current page content to a mock file
+        const timestamp = getTimestamp()
+        const mockPath = `${__dirname}/../mocks/ordersHistory_${timestamp}.html`
+        html = await page.content()
+        fs.writeFileSync(mockPath, html)
+        console.log(`Exported live scraping HTML to ${mockPath}`)
+      }
 
       // Wait for the order cards to load (adjust selector as needed)
       try {
@@ -142,7 +129,7 @@ function extractOrderData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
   }
 }
 
-async function exitIfNotLoggedIn(page: Page): Promise<void> {
+async function exitIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
   // Check if we're on a login page
   const isLoginPage = (await page.$('#ap_email')) !== null || (await page.$('#signInSubmit')) !== null
 
@@ -150,64 +137,6 @@ async function exitIfNotLoggedIn(page: Page): Promise<void> {
     console.log('Login required. You need to be logged in to access the orders page.')
     console.log('Please log in to Amazon first and then run the script again.')
     process.exit(1)
-  }
-}
-
-async function createBrowserAndPage(): Promise<{ browser: puppeteer.Browser; page: Page }> {
-  // Launch Puppeteer
-  const browser = await puppeteer.launch({
-    headless: false, // Set to true for production
-    devtools: false,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security', '--disable-blink-features=AutomationControlled'],
-    ignoreDefaultArgs: ['--enable-automation'],
-    defaultViewport: null,
-  })
-
-  // Set cookies if available
-  if (AMAZON_COOKIES?.length > 0) {
-    await browser.setCookie(...AMAZON_COOKIES)
-    console.log('Set Amazon cookies in the browser')
-  } else {
-    console.log('No Amazon cookies found, proceeding without them')
-  }
-
-  const page = await browser.newPage()
-
-  // Remove automation indicators
-  await page.evaluateOnNewDocument(() => {
-    Object.defineProperty(navigator, 'webdriver', {
-      get: () => undefined,
-    })
-  })
-
-  // Set user agent to match real browser
-  await page.setUserAgent(
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
-  )
-
-  // Set viewport
-  await page.setViewport({ width: 1366, height: 768 })
-
-  return { browser, page }
-}
-
-function loadAmazonCookiesFile() {
-  if (fs.existsSync(COOKIE_FILE_PATH)) {
-    try {
-      const json = JSON.parse(fs.readFileSync(COOKIE_FILE_PATH, 'utf-8'))
-      console.log('Loaded Amazon cookies from file')
-      return json.map((cookie: any) => ({
-        ...cookie,
-        // Ensure sameSite is set to a valid value
-        sameSite: cookie.sameSite || 'Lax',
-      }))
-    } catch (error: any) {
-      throw new Error(`Error reading or parsing amazonCookies.json: ${error.message}`)
-    }
-  } else {
-    throw new Error(
-      `No amazonCookies.json file found at ${COOKIE_FILE_PATH}. Please create it by logging into Amazon and exporting your cookies.`
-    )
   }
 }
 

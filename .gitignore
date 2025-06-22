@@ -215,3 +215,4 @@ build/
 dist/
 
 amazonCookies.json
+mocks/*_*.html
