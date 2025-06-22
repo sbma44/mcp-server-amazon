@@ -26,7 +26,7 @@ npm run build
 
 ## Claude Desktop Integration
 
-Update [~/Library/Application Support/Claude/claude_desktop_config.json](~/Library/Application%20Support/Claude/claude_desktop_config.json) with the path to the MCP server.
+Create or update `~/Library/Application Support/Claude/claude_desktop_config.json` with the path to the MCP server.
 
 ```json
 {
@@ -42,6 +42,12 @@ Update [~/Library/Application Support/Claude/claude_desktop_config.json](~/Libra
 Restart the Claude Desktop app to apply the changes. You should now see the Amazon MCP server listed in the Claude Desktop app.
 
 ![screenshot](./screenshot.webp)
+
+## Troubleshooting
+
+The MCP server logs its output to a file. If you encounter any issues, you can check the log file for more information.
+
+See `~/Library/Logs/Claude/mcp-server-amazon.log`
 
 ## License
 

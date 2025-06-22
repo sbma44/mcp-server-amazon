@@ -87,10 +87,10 @@ server.tool('get-cart-content', 'Get the current cart content for a user', {}, a
 async function main() {
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error('Amazon MCP Server running on stdio')
+  console.error('[INFO] Amazon MCP Server running on stdio')
 }
 
 main().catch(error => {
-  console.error('Fatal error in main():', error)
+  console.error('[ERROR] Fatal error in main():', error)
   process.exit(1)
 })

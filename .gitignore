@@ -216,3 +216,4 @@ dist/
 
 amazonCookies.json
 mocks/*_*.html
+!mcp-server-amazon.log
