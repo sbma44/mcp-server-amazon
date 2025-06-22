@@ -6,15 +6,22 @@ import { createBrowserAndPage, getTimestamp } from './utils.js'
 
 const __dirname = new URL('.', import.meta.url).pathname
 
+async function throwIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
+  const isLoginPage = (await page.$('#ap_email')) !== null || (await page.$('#signInSubmit')) !== null
+  if (isLoginPage) {
+    throw new Error('You need to be logged in to access this feature. Please log in to Amazon first and then try again.')
+  }
+}
+
 export async function getOrdersHistory() {
   let html: string
   if (USE_MOCKS) {
-    console.error('[INFO] Fetching orders history from mocks')
+    console.error('[INFO][get-orders-history] Fetching orders history from mocks')
     const mockPath = `${__dirname}/../mocks/getOrdersHistory.html`
     html = fs.readFileSync(mockPath, 'utf-8')
   } else {
     const url = 'https://www.amazon.es/-/en/gp/css/order-history'
-    console.error(`[INFO] Fetching orders history from ${url}`)
+    console.error(`[INFO][get-orders-history] Fetching orders history from ${url}`)
 
     const { browser, page } = await createBrowserAndPage()
 
@@ -25,20 +32,24 @@ export async function getOrdersHistory() {
       // Handle login if needed
       await throwIfNotLoggedIn(page)
 
-      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
-        // Export the current page content to a mock file
-        const timestamp = getTimestamp()
-        const mockPath = `${__dirname}/../mocks/getOrdersHistory_${timestamp}.html`
-        html = await page.content()
-        fs.writeFileSync(mockPath, html)
-        console.error(`[INFO] Exported live scraping HTML to ${mockPath}`)
-      }
-
       // Wait for the order cards to load (adjust selector as needed)
       try {
         await page.waitForSelector('.order-card, .your-orders-content-container', { timeout: 10000 })
       } catch (e) {
-        console.error('[INFO] Order cards not found immediately, proceeding with current content')
+        throw new Error(
+          '[INFO][get-orders-history] Could not find orders card selector. Ensure you are logged in and the orders history is accessible.'
+        )
+      }
+
+      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+        // Export only the .order-card and .your-orders-content-container content to a mock file
+        const timestamp = getTimestamp()
+        const mockPath = `${__dirname}/../mocks/getOrdersHistory_${timestamp}.html`
+        const orderCardsHtml = await page.$$eval('.order-card, .your-orders-content-container', elements =>
+          elements.map(el => el.outerHTML).join('\n')
+        )
+        fs.writeFileSync(mockPath, orderCardsHtml)
+        console.error(`[INFO][get-orders-history] Exported order cards HTML to ${mockPath}`)
       }
 
       // Get the HTML content after JavaScript execution
@@ -47,8 +58,6 @@ export async function getOrdersHistory() {
       await browser.close()
     }
   }
-
-  // if (!USE_MOCKS) console.error('[INFO] Fetched orders history HTML', html)
 
   const $ = cheerio.load(html)
   const orderCards = $('.order-card')
@@ -128,13 +137,6 @@ function extractOrderData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
   }
 }
 
-async function throwIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
-  const isLoginPage = (await page.$('#ap_email')) !== null || (await page.$('#signInSubmit')) !== null
-  if (isLoginPage) {
-    throw new Error('You need to be logged in to access this feature. Please log in to Amazon first and then try again.')
-  }
-}
-
 interface CartItem {
   title: string
   price: string
@@ -156,12 +158,12 @@ interface CartContent {
 export async function getCartContent(): Promise<CartContent> {
   let html: string
   if (USE_MOCKS) {
-    console.error('[INFO] Fetching cart content from mocks')
+    console.error('[INFO][get-cart-content] Fetching cart content from mocks')
     const mockPath = `${__dirname}/../mocks/getCartContent.html`
     html = fs.readFileSync(mockPath, 'utf-8')
   } else {
     const url = 'https://www.amazon.es/-/en/gp/cart/view.html?ref_=nav_cart'
-    console.error(`[INFO] Fetching cart content from ${url}`)
+    console.error(`[INFO][get-cart-content] Fetching cart content from ${url}`)
 
     const { browser, page } = await createBrowserAndPage()
 
@@ -172,20 +174,20 @@ export async function getCartContent(): Promise<CartContent> {
       // Handle login if needed
       await throwIfNotLoggedIn(page)
 
-      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
-        // Export the current page content to a mock file
-        const timestamp = getTimestamp()
-        const mockPath = `${__dirname}/../mocks/getCartContent_${timestamp}.html`
-        html = await page.content()
-        fs.writeFileSync(mockPath, html)
-        console.error(`[INFO] Exported live scraping HTML to ${mockPath}`)
-      }
-
       // Wait for the cart content to load
       try {
         await page.waitForSelector('#sc-active-cart', { timeout: 10000 })
       } catch (e) {
-        console.error('[INFO] Cart container not found immediately, proceeding with current content')
+        throw new Error('[INFO][get-cart-content] Could not find cart container. Ensure you are logged in and the cart is accessible.')
+      }
+
+      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+        // Export only the `#sc-active-cart` content to a mock file
+        const timestamp = getTimestamp()
+        const mockPath = `${__dirname}/../mocks/getCartContent_${timestamp}.html`
+        const cartHtml = await page.$eval('#sc-active-cart', el => el.outerHTML)
+        fs.writeFileSync(mockPath, cartHtml)
+        console.error(`[INFO][get-cart-content] Exported cart container HTML to ${mockPath}`)
       }
 
       // Get the HTML content after JavaScript execution
@@ -230,7 +232,7 @@ function extractCartData($: cheerio.CheerioAPI): CartContent {
     const availability = $item.find('.sc-product-availability').text().trim() || 'Unknown'
     const isSelected = $item.find('input[type="checkbox"]').is(':checked')
 
-    console.error(`[INFO] Extracted item: ${title}, Price: ${price}, Quantity: ${quantity}, ASIN: ${asin}`)
+    console.error(`[INFO][get-cart-content] Extracted ASIN: ${asin}, Price: ${price}, Quantity: ${quantity}, item: ${title}`)
     // Only add items with valid titles and prices
     if (title && price) {
       items.push({
