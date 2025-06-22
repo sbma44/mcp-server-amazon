@@ -1,21 +1,16 @@
 {
-  "name": "mcp-quickstart-ts",
+  "name": "mcp-server-amazon",
   "private": true,
-  "description": "A quickstart project for MCP using TypeScript",
+  "description": "Amazon Model Context Protocol Server",
   "version": "1.0.0",
   "main": "./build/index.js",
   "type": "module",
-  "bin": {
-    "weather": "./build/index.js"
-  },
   "scripts": {
     "build": "tsc && chmod -R 755 ./build"
   },
   "files": [
     "build"
   ],
-  "keywords": [],
-  "license": "IMT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.4.0",
     "cheerio": "^1.1.0",

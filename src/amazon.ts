@@ -9,12 +9,12 @@ const __dirname = new URL('.', import.meta.url).pathname
 export async function getOrdersHistory() {
   let html: string
   if (USE_MOCKS) {
-    console.log('Fetching orders history from mocks')
+    console.error('[INFO] Fetching orders history from mocks')
     const mockPath = `${__dirname}/../mocks/ordersHistory.html`
     html = fs.readFileSync(mockPath, 'utf-8')
   } else {
     const url = 'https://www.amazon.es/-/en/gp/css/order-history'
-    console.log(`Fetching orders history from ${url}`)
+    console.error(`[INFO] Fetching orders history from ${url}`)
 
     const { browser, page } = await createBrowserAndPage()
 
@@ -23,7 +23,7 @@ export async function getOrdersHistory() {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
 
       // Handle login if needed
-      await exitIfNotLoggedIn(page)
+      await throwIfNotLoggedIn(page)
 
       if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
         // Export the current page content to a mock file
@@ -31,14 +31,14 @@ export async function getOrdersHistory() {
         const mockPath = `${__dirname}/../mocks/ordersHistory_${timestamp}.html`
         html = await page.content()
         fs.writeFileSync(mockPath, html)
-        console.log(`Exported live scraping HTML to ${mockPath}`)
+        console.error(`[INFO] Exported live scraping HTML to ${mockPath}`)
       }
 
       // Wait for the order cards to load (adjust selector as needed)
       try {
         await page.waitForSelector('.order-card, .your-orders-content-container', { timeout: 10000 })
       } catch (e) {
-        console.log('Order cards not found immediately, proceeding with current content')
+        console.error('[INFO] Order cards not found immediately, proceeding with current content')
       }
 
       // Get the HTML content after JavaScript execution
@@ -48,7 +48,7 @@ export async function getOrdersHistory() {
     }
   }
 
-  // if (!USE_MOCKS) console.log('Fetched orders history HTML', html)
+  // if (!USE_MOCKS) console.error('[INFO] Fetched orders history HTML', html)
 
   const $ = cheerio.load(html)
   const orderCards = $('.order-card')
@@ -111,7 +111,6 @@ function extractOrderData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
     })
   })
 
-  // Build final object
   return {
     orderInfo: {
       orderNumber,
@@ -129,23 +128,9 @@ function extractOrderData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
   }
 }
 
-async function exitIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
-  // Check if we're on a login page
+async function throwIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
   const isLoginPage = (await page.$('#ap_email')) !== null || (await page.$('#signInSubmit')) !== null
-
   if (isLoginPage) {
-    console.log('Login required. You need to be logged in to access the orders page.')
-    console.log('Please log in to Amazon first and then run the script again.')
-    process.exit(1)
+    throw new Error('You need to be logged in to access this feature. Please log in to Amazon first and then try again.')
   }
 }
-
-async function main() {
-  try {
-    const orders = await getOrdersHistory()
-    console.log(JSON.stringify(orders, null, 2))
-  } catch (error) {
-    console.error('Error fetching orders:', error)
-  }
-}
-main().catch(console.error)
