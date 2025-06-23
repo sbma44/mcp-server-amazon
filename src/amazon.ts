@@ -65,12 +65,12 @@ export async function getOrdersHistory() {
 
   const $ = cheerio.load(html)
   const orderCards = $('.order-card')
-    .map((index, element) => extractOrderData($, $(element)))
+    .map((index, element) => extractOrdersHistoryPageData($, $(element)))
     .get()
   return orderCards
 }
 
-function extractOrderData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
+function extractOrdersHistoryPageData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
   // Extract order information
   const orderNumber = $card.find('.yohtmlc-order-id span').last().text().trim()
   const orderDate = $card.find('.order-header__header-list-item').first().find('.a-size-base').text().trim()
@@ -210,10 +210,10 @@ export async function getCartContent(): Promise<CartContent> {
   }
 
   const $ = cheerio.load(html)
-  return extractCartData($)
+  return extractCartPageData($)
 }
 
-function extractCartData($: cheerio.CheerioAPI): CartContent {
+function extractCartPageData($: cheerio.CheerioAPI): CartContent {
   const $cartContainer = $('#sc-active-cart')
 
   // Check if cart is empty
@@ -363,21 +363,24 @@ export async function addToCart(asin: string): Promise<{ success: boolean; messa
 // ##################################
 
 interface ProductDetails {
-  asin: string
-  title: string
-  price: string
-  canUseSubscribeAndSave: boolean
-  description: {
-    overview?: string
-    features?: string
-    facts?: string
-    brandSnapshot?: string
+  data: {
+    asin: string
+    title: string
+    price: string
+    canUseSubscribeAndSave: boolean
+    description: {
+      overview?: string
+      features?: string
+      facts?: string
+      brandSnapshot?: string
+    }
+    reviews: {
+      averageRating?: string
+      reviewsCount?: string
+    }
+    mainImageUrl?: string
   }
-  reviews: {
-    averageRating?: string
-    reviewsCount?: string
-  }
-  mainImage?: string
+  mainImageBase64?: string
 }
 
 export async function getProductDetails(asin: string): Promise<ProductDetails> {
@@ -427,16 +430,16 @@ export async function getProductDetails(asin: string): Promise<ProductDetails> {
   }
 
   const $ = cheerio.load(html)
-  return extractProductData($, asin)
+  return extractProductDetailsPageData($, asin)
 }
 
-function extractProductData($: cheerio.CheerioAPI, asin: string): ProductDetails {
+async function extractProductDetailsPageData($: cheerio.CheerioAPI, asin: string): Promise<ProductDetails> {
   // Extract product title
   const title = $('span#productTitle').text().trim()
 
   // Extract price information
   let price = ''
-  let canUseSubscribeAndSave: ProductDetails['canUseSubscribeAndSave'] = false
+  let canUseSubscribeAndSave: ProductDetails['data']['canUseSubscribeAndSave'] = false
 
   // Check if it's a subscribe and save product
   const subscriptionPrice = $('#subscriptionPrice .a-price .a-offscreen').prop('innerText')?.trim()
@@ -449,7 +452,7 @@ function extractProductData($: cheerio.CheerioAPI, asin: string): ProductDetails
   }
 
   // Extract description sections
-  const description: ProductDetails['description'] = {}
+  const description: ProductDetails['data']['description'] = {}
 
   const overview = $('#productOverview_feature_div').prop('innerText')?.trim()
   if (overview) description.overview = overview
@@ -464,7 +467,7 @@ function extractProductData($: cheerio.CheerioAPI, asin: string): ProductDetails
   if (brandSnapshot) description.brandSnapshot = brandSnapshot
 
   // Extract reviews information
-  const reviews: ProductDetails['reviews'] = {}
+  const reviews: ProductDetails['data']['reviews'] = {}
 
   const averageRating = $('#averageCustomerReviews span.a-size-small.a-color-base').text().trim()
   if (averageRating) reviews.averageRating = averageRating
@@ -478,20 +481,42 @@ function extractProductData($: cheerio.CheerioAPI, asin: string): ProductDetails
       .trim()
 
   // Extract main product image
-  const mainImage = $('#main-image-container img.a-dynamic-image').attr('src')
+  const mainImageUrl = $('#main-image-container img.a-dynamic-image').attr('src')
+  // Download the image and convert to base64
+  let mainImageBase64: ProductDetails['mainImageBase64'] = undefined
+  if (mainImageUrl) {
+    if (USE_MOCKS) {
+      console.error('[INFO][get-product-details] Downloading product main image from mocks')
+      const mockPath = `${__dirname}/../mocks/getProductDetails_image_base64.txt`
+      mainImageBase64 = fs.readFileSync(mockPath, 'utf-8')
+    } else {
+      // FIXME: This is not supported yet by Claude Desktop client!! Uncomment when they implement it
+      // console.error(`[INFO][get-product-details] Downloading main image from ${mainImageUrl}`)
+      // mainImageBase64 = await downloadImageAsBase64(mainImageUrl)
+      // if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+      //   const timestamp = getTimestamp()
+      //   const mockPath = `${__dirname}/../mocks/getProductDetails_image_base64_${timestamp}.txt`
+      //   fs.writeFileSync(mockPath, mainImageBase64)
+      //   console.error(`[INFO][get-product-details] Exported main image base64 to ${mockPath}`)
+      // }
+    }
+  }
 
   console.error(
-    `[INFO][get-product-details] Extracted product: ASIN: ${asin}, ${title}, Price: ${price}, Can use subscribe and save: ${canUseSubscribeAndSave}, Reviews: ${reviews.averageRating} (${reviews.reviewsCount} reviews}), Main Image: ${mainImage}`
+    `[INFO][get-product-details] Extracted product: ASIN: ${asin}, ${title}, Price: ${price}, Can use subscribe and save: ${canUseSubscribeAndSave}, Reviews: ${reviews.averageRating} (${reviews.reviewsCount} reviews}), Main image URL: ${mainImageUrl}`
   )
 
   return {
-    asin,
-    title,
-    price,
-    canUseSubscribeAndSave,
-    description,
-    reviews,
-    mainImage,
+    data: {
+      asin,
+      title,
+      price,
+      canUseSubscribeAndSave,
+      description,
+      reviews,
+      mainImageUrl,
+    },
+    mainImageBase64,
   }
 }
 

@@ -8,11 +8,11 @@ async function testGetProductDetails_regular() {
     console.log(`Testing getProductDetails with ASIN: ${testAsin}`)
 
     const result = await getProductDetails(testAsin)
-    console.log('Result:')
-    console.log(result)
+    console.log('Result data:')
+    console.log(result.data)
 
     // Basic validation
-    if (result.asin === testAsin && result.title && result.price) {
+    if (result.data.asin === testAsin && result.data.title && result.data.price) {
       console.log('✅ Test passed: Product details successfully retrieved')
     } else {
       console.log('❌ Test failed: Missing required product data')
@@ -30,11 +30,11 @@ async function testGetProductDetails_subscribeAndSave() {
     console.log(`Testing getProductDetails with ASIN: ${testAsin}`)
 
     const result = await getProductDetails(testAsin)
-    console.log('Result:')
-    console.log(result)
+    console.log('Result data:')
+    console.log(result.data)
 
     // Basic validation
-    if (result.asin === testAsin && result.title && result.price) {
+    if (result.data.asin === testAsin && result.data.title && result.data.price) {
       console.log('✅ Test passed: Product details successfully retrieved')
     } else {
       console.log('❌ Test failed: Missing required product data')

@@ -145,12 +145,24 @@ server.tool(
     }
 
     return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
+      content: result.mainImageBase64
+        ? [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data, null, 2),
+            },
+            {
+              type: 'image',
+              data: result.mainImageBase64,
+              mimeType: 'image/jpeg',
+            },
+          ]
+        : [
+            {
+              type: 'text',
+              text: JSON.stringify(result.data, null, 2),
+            },
+          ],
     }
   }
 )

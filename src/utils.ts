@@ -68,3 +68,11 @@ export async function createBrowserAndPage(): Promise<{ browser: puppeteer.Brows
 
   return { browser, page }
 }
+
+export async function downloadImageAsBase64(url: string): Promise<string> {
+  const response = await fetch(url)
+  const arrayBuffer = await response.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+  const b64 = buffer.toString('base64')
+  return `${b64}`
+}
