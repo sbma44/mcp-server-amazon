@@ -330,6 +330,13 @@ export async function addToCart(asin: string): Promise<{ success: boolean; messa
       throw new Error(`Could not find or click the add to cart button: ${error}`)
     }
 
+    // If there is an insurance option, refuse it
+    try {
+      await page.click('#attachSiNoCoverage', { delay: 300 })
+    } catch (error) {
+      console.error(`[WARNING][add-to-cart] Failed to click insurance option (it may not be present):`, error)
+    }
+
     // Wait for the confirmation page/modal
     try {
       await page.waitForSelector('#sw-atc-confirmation', { timeout: 15000 })
@@ -696,8 +703,8 @@ function extractSearchResultsPageData($: cheerio.CheerioAPI, searchTerm: string)
     return []
   }
 
-  // Limit to first 15 items
-  const limitedItems = $productItems.slice(0, 15)
+  // Limit to first 20 items
+  const limitedItems = $productItems.slice(0, 20)
 
   console.error(`[INFO][search-products] Found ${$productItems.length} products, processing first ${limitedItems.length}`)
 

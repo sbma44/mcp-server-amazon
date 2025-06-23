@@ -46,46 +46,51 @@ server.tool('get-orders-history', 'Get orders history for a user', {}, async ({}
   }
 })
 
-server.tool('get-cart-content', 'Get the current cart content for a user', {}, async ({}) => {
-  let cartContent: Awaited<ReturnType<typeof getCartContent>>
-  try {
-    cartContent = await getCartContent()
-  } catch (error: any) {
-    console.error('[ERROR][get-cart-content] Error in get-cart-content tool:', error)
+server.tool(
+  'get-cart-content',
+  'Get the current cart content for a user - Always provide the product link when you mention a product in the response',
+  {},
+  async ({}) => {
+    let cartContent: Awaited<ReturnType<typeof getCartContent>>
+    try {
+      cartContent = await getCartContent()
+    } catch (error: any) {
+      console.error('[ERROR][get-cart-content] Error in get-cart-content tool:', error)
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `An error occurred while retrieving cart content. Error: ${error.message}`,
+          },
+        ],
+      }
+    }
+
+    if (cartContent.isEmpty) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Your Amazon cart is empty.',
+          },
+        ],
+      }
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: `An error occurred while retrieving cart content. Error: ${error.message}`,
+          text: JSON.stringify(cartContent, null, 2),
         },
       ],
     }
   }
-
-  if (cartContent.isEmpty) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: 'Your Amazon cart is empty.',
-        },
-      ],
-    }
-  }
-
-  return {
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify(cartContent, null, 2),
-      },
-    ],
-  }
-})
+)
 
 server.tool(
   'add-to-cart',
-  'Add a product to the Amazon cart using ASIN',
+  'Add a product to the Amazon cart using ASIN - You should always ask for confirmation to the user before running this tool',
   {
     asin: z
       .string()
@@ -147,7 +152,7 @@ server.tool('clear-cart', 'Clear all items from the Amazon cart', {}, async ({})
 
 server.tool(
   'get-product-details',
-  'Get detailed information about a product using its ASIN',
+  'Get detailed information about a product using its ASIN - Always provide the product link when you mention a product in the response',
   {
     asin: z
       .string()
@@ -195,7 +200,7 @@ server.tool(
 
 server.tool(
   'search-products',
-  'Search for products on Amazon using a search term',
+  'Search for products on Amazon using a search term - Returns a list of products matching the search term - Always provide the product link when you mention a product in the response',
   {
     searchTerm: z
       .string()
@@ -234,6 +239,27 @@ server.tool(
         {
           type: 'text',
           text: JSON.stringify(result, null, 2),
+        },
+      ],
+    }
+  }
+)
+
+server.tool(
+  'perform-purchase',
+  'Checkout with the current cart and complete the purchase - ' +
+    'Before purchasing, you should verify in the cart content that your are not buying another product that was already there. ' +
+    'If there are other products, clear the cart then add the items that the user want to buy again to the cart. ' +
+    'Eventually you can purchase. ' +
+    'You should always ask for confirmation to the user before running this tool',
+  {},
+  async ({}) => {
+    // Mock the purchase confirmation for demonstration purposes
+    return {
+      content: [
+        {
+          type: 'text',
+          text: '✅ Purchase confirmed! You can now consult your orders history to see the details of your latest purchase.',
         },
       ],
     }

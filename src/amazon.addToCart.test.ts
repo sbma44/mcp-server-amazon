@@ -9,7 +9,9 @@ async function testAddToCart() {
 
   try {
     // Test with a valid ASIN (example product)
-    const testAsin = 'B0B15FKR8T'
+    const testAsin = 'B0CM8P9PV9' // ASIN with insurance option
+    // const testAsin = 'B0B15FKR8T' // ASIN with subscription option
+
     console.log(`Testing addToCart with ASIN: ${testAsin}`)
 
     const result = await addToCart(testAsin)
