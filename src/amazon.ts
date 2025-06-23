@@ -357,3 +357,144 @@ export async function addToCart(asin: string): Promise<{ success: boolean; messa
 // ##################################
 // End addToCart
 // ##################################
+
+// ##################################
+// Start getProductDetails
+// ##################################
+
+interface ProductDetails {
+  asin: string
+  title: string
+  price: string
+  canUseSubscribeAndSave: boolean
+  description: {
+    overview?: string
+    features?: string
+    facts?: string
+    brandSnapshot?: string
+  }
+  reviews: {
+    averageRating?: string
+    reviewsCount?: string
+  }
+  mainImage?: string
+}
+
+export async function getProductDetails(asin: string): Promise<ProductDetails> {
+  if (!asin || asin.length !== 10) {
+    throw new Error('Invalid ASIN provided. ASIN should be a 10-character string.')
+  }
+
+  let html: string
+  if (USE_MOCKS) {
+    console.error('[INFO][get-product-details] Fetching product details from mocks')
+    const mockPath = `${__dirname}/../mocks/getProductDetails.html`
+    html = fs.readFileSync(mockPath, 'utf-8')
+  } else {
+    const url = `https://www.amazon.es/-/en/gp/product/${asin}`
+    console.error(`[INFO][get-product-details] Fetching product details from ${url}`)
+
+    const { browser, page } = await createBrowserAndPage()
+
+    try {
+      // Navigate to the product page
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+
+      // Handle login if needed
+      await throwIfNotLoggedIn(page)
+
+      // Wait for the product page to load
+      try {
+        await page.waitForSelector('#productTitle', { timeout: 10000 })
+      } catch (e) {
+        throw new Error('[INFO][get-product-details] Could not find product title. The product may not exist or be accessible.')
+      }
+
+      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+        // Export the main product content to a mock file
+        const timestamp = getTimestamp()
+        const mockPath = `${__dirname}/../mocks/getProductDetails_${timestamp}.html`
+        const productHtml = await page.content()
+        fs.writeFileSync(mockPath, productHtml)
+        console.error(`[INFO][get-product-details] Exported product page HTML to ${mockPath}`)
+      }
+
+      // Get the HTML content after JavaScript execution
+      html = await page.content()
+    } finally {
+      await browser.close()
+    }
+  }
+
+  const $ = cheerio.load(html)
+  return extractProductData($, asin)
+}
+
+function extractProductData($: cheerio.CheerioAPI, asin: string): ProductDetails {
+  // Extract product title
+  const title = $('span#productTitle').text().trim()
+
+  // Extract price information
+  let price = ''
+  let canUseSubscribeAndSave: ProductDetails['canUseSubscribeAndSave'] = false
+
+  // Check if it's a subscribe and save product
+  const subscriptionPrice = $('#subscriptionPrice .a-price .a-offscreen').prop('innerText')?.trim()
+  if (subscriptionPrice) {
+    price = subscriptionPrice
+    canUseSubscribeAndSave = true
+  } else {
+    // Use regular price
+    price = $('.priceToPay').text().trim()
+  }
+
+  // Extract description sections
+  const description: ProductDetails['description'] = {}
+
+  const overview = $('#productOverview_feature_div').prop('innerText')?.trim()
+  if (overview) description.overview = overview
+
+  const features = $('#featurebullets_feature_div').prop('innerText')?.trim()
+  if (features) description.features = features
+
+  const facts = $('#productFactsDesktop_feature_div').prop('innerText')?.trim()
+  if (facts) description.facts = facts
+
+  const brandSnapshot = $('#brandSnapshot_feature_div').prop('innerText')?.trim()
+  if (brandSnapshot) description.brandSnapshot = brandSnapshot
+
+  // Extract reviews information
+  const reviews: ProductDetails['reviews'] = {}
+
+  const averageRating = $('#averageCustomerReviews span.a-size-small.a-color-base').text().trim()
+  if (averageRating) reviews.averageRating = averageRating
+
+  const reviewsCountElement = $('#acrCustomerReviewLink span')
+  const reviewsCount = reviewsCountElement.attr('aria-label')
+  if (reviewsCount)
+    reviews.reviewsCount = reviewsCount
+      .replace(/\s+.*$/g, '')
+      .replace(/,/g, '')
+      .trim()
+
+  // Extract main product image
+  const mainImage = $('#main-image-container img.a-dynamic-image').attr('src')
+
+  console.error(
+    `[INFO][get-product-details] Extracted product: ASIN: ${asin}, ${title}, Price: ${price}, Can use subscribe and save: ${canUseSubscribeAndSave}, Reviews: ${reviews.averageRating} (${reviews.reviewsCount} reviews}), Main Image: ${mainImage}`
+  )
+
+  return {
+    asin,
+    title,
+    price,
+    canUseSubscribeAndSave,
+    description,
+    reviews,
+    mainImage,
+  }
+}
+
+// ##################################
+// End getProductDetails
+// ##################################

@@ -5,10 +5,11 @@ This server allows you to interact with Amazon's services using the MCP (Model C
 ## Features
 
 - **Product search**: Search for products on Amazon TODO
+- **Product details**: Retrieve detailed information about a specific product on Amazon
+- **Cart management**: Add or remove items from your Amazon cart
+- **Ordering**: Place orders TODO
 - **Orders history**: Retrieve your recent Amazon orders details
 - **Account management**: Manage your Amazon account settings TODO
-- **Cart management**: Add or remove items from your Amazon cart TODO
-- **Ordering**: Place orders TODO
 
 ## Install
 

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { getOrdersHistory, getCartContent, addToCart } from './amazon.js'
+import { getOrdersHistory, getCartContent, addToCart, getProductDetails } from './amazon.js'
 
 // Create server instance
 const server = new McpServer({
@@ -113,6 +113,42 @@ server.tool(
         {
           type: 'text',
           text: result.success ? `✅ ${result.message}` : `❌ Failed to add product to cart: ${result.message}`,
+        },
+      ],
+    }
+  }
+)
+
+server.tool(
+  'get-product-details',
+  'Get detailed information about a product using its ASIN',
+  {
+    asin: z
+      .string()
+      .length(10, { message: 'ASIN must be a 10-character string.' })
+      .describe('The ASIN (Amazon Standard Identification Number) of the product to get details for. Must be a 10-character string.'),
+  },
+  async ({ asin }) => {
+    let result: Awaited<ReturnType<typeof getProductDetails>>
+    try {
+      result = await getProductDetails(asin)
+    } catch (error: any) {
+      console.error('[ERROR][get-product-details] Error in get-product-details tool:', error)
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `An error occurred while retrieving product details. Error: ${error.message}`,
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result, null, 2),
         },
       ],
     }
