@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { getOrdersHistory, getCartContent, addToCart, getProductDetails } from './amazon.js'
+import { getOrdersHistory, getCartContent, addToCart, getProductDetails, searchProducts } from './amazon.js'
 
 // Create server instance
 const server = new McpServer({
@@ -163,6 +163,53 @@ server.tool(
               text: JSON.stringify(result.data, null, 2),
             },
           ],
+    }
+  }
+)
+
+server.tool(
+  'search-products',
+  'Search for products on Amazon using a search term',
+  {
+    searchTerm: z
+      .string()
+      .min(1, { message: 'Search term cannot be empty.' })
+      .describe('The search term to look for products on Amazon. For example: "collagen", "laptop", "books"'),
+  },
+  async ({ searchTerm }) => {
+    let result: Awaited<ReturnType<typeof searchProducts>>
+    try {
+      result = await searchProducts(searchTerm)
+    } catch (error: any) {
+      console.error('[ERROR][search-products] Error in search-products tool:', error)
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `An error occurred while searching for products. Error: ${error.message}`,
+          },
+        ],
+      }
+    }
+
+    if (!result || result.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `No products found for search term "${searchTerm}".`,
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
     }
   }
 )

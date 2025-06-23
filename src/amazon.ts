@@ -503,7 +503,7 @@ async function extractProductDetailsPageData($: cheerio.CheerioAPI, asin: string
   }
 
   console.error(
-    `[INFO][get-product-details] Extracted product: ASIN: ${asin}, ${title}, Price: ${price}, Can use subscribe and save: ${canUseSubscribeAndSave}, Reviews: ${reviews.averageRating} (${reviews.reviewsCount} reviews}), Main image URL: ${mainImageUrl}`
+    `[INFO][get-product-details] Extracted product: ASIN: ${asin}, ${title}, Price: ${price}, Can use subscribe and save: ${canUseSubscribeAndSave}, Reviews: ${reviews.averageRating} (${reviews.reviewsCount} reviews), Main image URL: ${mainImageUrl}`
   )
 
   return {
@@ -522,4 +522,191 @@ async function extractProductDetailsPageData($: cheerio.CheerioAPI, asin: string
 
 // ##################################
 // End getProductDetails
+// ##################################
+
+// ##################################
+// Start searchProducts
+// ##################################
+
+interface ProductSearchResult {
+  asin: string
+  title: string
+  isSponsored: boolean
+  brand?: string
+  price?: string
+  pricePerUnit?: string
+  description?: {
+    overview?: string
+    features?: string
+    facts?: string
+    brandSnapshot?: string
+  }
+  reviews?: {
+    averageRating?: string
+    reviewCount?: string
+  }
+  imageUrl?: string
+  isPrimeEligible: boolean
+  deliveryInfo?: string
+  productUrl?: string
+}
+
+export async function searchProducts(searchTerm: string): Promise<ProductSearchResult[]> {
+  if (!searchTerm || searchTerm.trim().length === 0) {
+    throw new Error('Search term is required and cannot be empty.')
+  }
+
+  let html: string
+  if (USE_MOCKS) {
+    console.error('[INFO][search-products] Fetching search results from mocks')
+    const mockPath = `${__dirname}/../mocks/searchProducts.html`
+    html = fs.readFileSync(mockPath, 'utf-8')
+  } else {
+    const url = `https://www.amazon.es/s?k=${encodeURIComponent(searchTerm)}`
+    console.error(`[INFO][search-products] Searching for products with term "${searchTerm}" from ${url}`)
+
+    const { browser, page } = await createBrowserAndPage()
+
+    try {
+      // Navigate to the search page
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+
+      // Handle login if needed
+      await throwIfNotLoggedIn(page)
+
+      // Wait for search results to load
+      try {
+        await page.waitForSelector('.s-search-results', { timeout: 10000 })
+      } catch (e) {
+        throw new Error(
+          '[INFO][search-products] Could not find search results container. The search may have failed or returned no results.'
+        )
+      }
+
+      if (EXPORT_LIVE_SCRAPING_FOR_MOCKS) {
+        // Export the search results content to a mock file
+        const timestamp = getTimestamp()
+        const searchResultsHtml = await page.$eval('.s-search-results', el => el.outerHTML)
+        const mockFileName = `searchProducts_${timestamp}.html`
+        const mockPath = `${__dirname}/../mocks/${mockFileName}`
+        fs.writeFileSync(mockPath, searchResultsHtml)
+        console.error(`[INFO][search-products] Exported search results HTML to ${mockPath}`)
+      }
+
+      // Get the HTML content after JavaScript execution
+      html = await page.content()
+    } finally {
+      await browser.close()
+    }
+  }
+
+  const $ = cheerio.load(html)
+  return extractSearchResultsPageData($, searchTerm)
+}
+
+function extractSearchResultsPageData($: cheerio.CheerioAPI, searchTerm: string): ProductSearchResult[] {
+  const searchResults: ProductSearchResult[] = []
+
+  // Find the search results using the actual Amazon structure
+  const $productItems = $('[role="listitem"]')
+
+  if ($productItems.length === 0) {
+    console.error('[INFO][search-products] No search results found')
+    return []
+  }
+
+  // Limit to first 15 items
+  const limitedItems = $productItems.slice(0, 15)
+
+  console.error(`[INFO][search-products] Found ${$productItems.length} products, processing first ${limitedItems.length}`)
+
+  limitedItems.each((index, element) => {
+    const $item = $(element)
+
+    try {
+      const productData = extractSearchResultSingleProductData($, $item)
+      if (productData && productData.asin) {
+        searchResults.push(productData)
+        console.error(`[INFO][search-products] Extracted product ${index + 1}: ${productData.asin} - ${productData.title}`)
+      }
+    } catch (error) {
+      console.error(`[INFO][search-products] Error extracting product ${index + 1}:`, error)
+    }
+  })
+
+  console.error(`[INFO][search-products] Successfully extracted ${searchResults.length} products for search term "${searchTerm}"`)
+  return searchResults
+}
+
+function extractSearchResultSingleProductData($: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): ProductSearchResult | null {
+  // Extract ASIN
+  const asin = $item.attr('data-asin')
+  if (!asin) {
+    return null
+  }
+
+  // Extract title and check if sponsored
+  const titleElement = $item.find('h2[aria-label]')
+  const fullTitle = titleElement.attr('aria-label') || ''
+  const isSponsored = fullTitle.startsWith('Sponsored Ad – ')
+  const title = isSponsored ? fullTitle.replace('Sponsored Ad – ', '') : fullTitle
+
+  // Extract brand
+  const brand = $item.find('h2.a-size-mini span.a-size-base-plus.a-color-base').text().trim() || undefined
+
+  // Extract price information
+  const price = $item.find('span.a-price[data-a-size="xl"] > span.a-offscreen').text().trim() || undefined
+
+  // Extract price per unit (more complex selector)
+  let pricePerUnit: string | undefined
+  const pricePerUnitElement = $item.find('span.a-price[data-a-size="b"][data-a-color="secondary"] > span.a-offscreen')
+  if (pricePerUnitElement.length > 0) {
+    const parentText = pricePerUnitElement.parent().parent().text().trim()
+    pricePerUnit = parentText || undefined
+  }
+
+  // Extract reviews
+  const reviews: ProductSearchResult['reviews'] = {}
+
+  const ratingElement = $item.find('i.a-icon-star-mini span.a-icon-alt')
+  const ratingText = ratingElement.text().trim()
+  if (ratingText) {
+    reviews.averageRating = ratingText
+  }
+
+  const reviewCountElement = $item.find('a[aria-label*="ratings"] span.a-size-small')
+  const reviewCount = reviewCountElement.text().trim()
+  if (reviewCount) {
+    reviews.reviewCount = reviewCount
+  }
+
+  // Extract image URL
+  const imageUrl = $item.find('img.s-image').attr('src') || undefined
+
+  // Check Prime eligibility
+  const isPrimeEligible = $item.find('i.a-icon-prime').length > 0
+
+  // Extract delivery information
+  const deliveryInfo = $item.find('div.udm-primary-delivery-message').text().trim() || undefined
+
+  // Extract product URL
+  const productUrl = `https://www.amazon.es/-/en/gp/product/${asin}`
+
+  return {
+    asin,
+    title,
+    isSponsored,
+    brand,
+    price,
+    pricePerUnit,
+    reviews: Object.keys(reviews).length > 0 ? reviews : undefined,
+    imageUrl,
+    isPrimeEligible,
+    deliveryInfo,
+    productUrl,
+  }
+}
+
+// ##################################
+// End searchProducts
 // ##################################
