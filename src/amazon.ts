@@ -318,7 +318,7 @@ export async function addToCart(asin: string): Promise<{ success: boolean; messa
         console.error('[INFO][add-to-cart] No subscribe and save option found, proceeding to add to cart')
       }
     } catch (error) {
-      throw new Error(`Error checking for subscribe and save option: ${error}`)
+      console.error(`[INFO][add-to-cart] Error checking for subscribe and save option: ${error}`)
     }
 
     // Find and click the add to cart button
@@ -356,6 +356,87 @@ export async function addToCart(asin: string): Promise<{ success: boolean; messa
 
 // ##################################
 // End addToCart
+// ##################################
+
+// ##################################
+// Start clearCart
+// ##################################
+
+export async function clearCart() {
+  const url = 'https://www.amazon.es/-/en/gp/cart/view.html'
+  console.error(`[INFO][clear-cart] Clearing cart at ${url}`)
+
+  const { browser, page } = await createBrowserAndPage()
+
+  try {
+    // Navigate to the cart page
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+
+    // Handle login if needed
+    await throwIfNotLoggedIn(page)
+
+    // Wait for the cart to load
+    await page.waitForSelector('#sc-active-cart, .sc-cart-item, .sc-empty-cart-banner', { timeout: 10000 })
+
+    // Find all delete buttons
+    const deleteButtons = await page.$$('span[data-action="delete-active"]')
+
+    if (deleteButtons.length === 0) {
+      console.error('[INFO][clear-cart] No items found in cart to remove')
+      return {
+        success: true,
+        message: 'No items found in cart to remove',
+        itemsRemoved: 0,
+      }
+    }
+
+    console.error(`[INFO][clear-cart] Found ${deleteButtons.length} items to remove`)
+
+    let itemsRemoved = 0
+
+    // Click each delete button with delay
+    for (let i = 0; i < deleteButtons.length; i++) {
+      try {
+        // Re-query the delete buttons as DOM changes after each deletion
+        const currentDeleteButtons = await page.$$('span[data-action="delete-active"]')
+
+        if (currentDeleteButtons.length === 0) {
+          console.error('[INFO][clear-cart] No more items to delete')
+          break
+        }
+
+        // Click the first available delete button
+        await currentDeleteButtons[0].click()
+        itemsRemoved++
+
+        console.error(`[INFO][clear-cart] Removed item ${itemsRemoved}`)
+
+        // Wait for the page to update after deletion
+        if (i < deleteButtons.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 800))
+        }
+      } catch (error) {
+        console.error(`[WARNING][clear-cart] Failed to remove item ${i + 1}:`, error)
+      }
+    }
+
+    console.error(`[INFO][clear-cart] Successfully removed ${itemsRemoved} items from cart`)
+
+    return {
+      success: true,
+      message: `Successfully cleared cart. Removed ${itemsRemoved} items.`,
+      itemsRemoved,
+    }
+  } catch (error: any) {
+    console.error('[ERROR][clear-cart] Error clearing cart:', error)
+    throw new Error(`Failed to clear cart: ${error.message}`)
+  } finally {
+    await browser.close()
+  }
+}
+
+// ##################################
+// End clearCart
 // ##################################
 
 // ##################################

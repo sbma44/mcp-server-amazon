@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { getOrdersHistory, getCartContent, addToCart, getProductDetails, searchProducts } from './amazon.js'
+import { getOrdersHistory, getCartContent, addToCart, getProductDetails, searchProducts, clearCart } from './amazon.js'
 
 // Create server instance
 const server = new McpServer({
@@ -118,6 +118,32 @@ server.tool(
     }
   }
 )
+
+server.tool('clear-cart', 'Clear all items from the Amazon cart', {}, async ({}) => {
+  let result: Awaited<ReturnType<typeof clearCart>>
+  try {
+    result = await clearCart()
+  } catch (error: any) {
+    console.error('[ERROR][clear-cart] Error in clear-cart tool:', error)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `An error occurred while clearing the cart. Error: ${error.message}`,
+        },
+      ],
+    }
+  }
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: result.message,
+      },
+    ],
+  }
+})
 
 server.tool(
   'get-product-details',
