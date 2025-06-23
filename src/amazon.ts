@@ -332,9 +332,11 @@ export async function addToCart(asin: string): Promise<{ success: boolean; messa
 
     // If there is an insurance option, refuse it
     try {
+      await page.waitForSelector('#productTitle', { timeout: 1000 })
+      await page.click('#productTitle', { delay: 100 })
       await page.click('#attachSiNoCoverage', { delay: 300 })
     } catch (error) {
-      console.error(`[WARNING][add-to-cart] Failed to click insurance option (it may not be present):`, error)
+      console.error(`[WARNING][add-to-cart] Failed to click insurance option (it may not have been presented):`, error)
     }
 
     // Wait for the confirmation page/modal
