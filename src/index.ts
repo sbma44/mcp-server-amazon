@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { getOrdersHistory, getCartContent } from './amazon.js'
+import { getOrdersHistory, getCartContent, addToCart } from './amazon.js'
 
 // Create server instance
 const server = new McpServer({
@@ -14,7 +14,7 @@ server.tool('get-orders-history', 'Get orders history for a user', {}, async ({}
   try {
     ordersHistory = await getOrdersHistory()
   } catch (error: any) {
-    console.error('Error in get-orders-history tool:', error)
+    console.error('[ERROR][get-orders-history] Error in get-orders-history tool:', error)
     return {
       content: [
         {
@@ -51,7 +51,7 @@ server.tool('get-cart-content', 'Get the current cart content for a user', {}, a
   try {
     cartContent = await getCartContent()
   } catch (error: any) {
-    console.error('Error in get-cart-content tool:', error)
+    console.error('[ERROR][get-cart-content] Error in get-cart-content tool:', error)
     return {
       content: [
         {
@@ -82,6 +82,42 @@ server.tool('get-cart-content', 'Get the current cart content for a user', {}, a
     ],
   }
 })
+
+server.tool(
+  'add-to-cart',
+  'Add a product to the Amazon cart using ASIN',
+  {
+    asin: z
+      .string()
+      .length(10, { message: 'ASIN must be a 10-character string.' })
+      .describe('The ASIN (Amazon Standard Identification Number) of the product to add to cart. Must be a 10-character string.'),
+  },
+  async ({ asin }) => {
+    let result: Awaited<ReturnType<typeof addToCart>>
+    try {
+      result = await addToCart(asin)
+    } catch (error: any) {
+      console.error('[ERROR][add-to-cart] Error in add-to-cart tool:', error)
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `An error occurred while adding product to cart. Error: ${error.message}`,
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: result.success ? `✅ ${result.message}` : `❌ Failed to add product to cart: ${result.message}`,
+        },
+      ],
+    }
+  }
+)
 
 // Start the server
 async function main() {

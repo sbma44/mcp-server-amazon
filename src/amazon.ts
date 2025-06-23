@@ -13,6 +13,10 @@ async function throwIfNotLoggedIn(page: puppeteer.Page): Promise<void> {
   }
 }
 
+// ##################################
+// Start getOrdersHistory
+// ##################################
+
 export async function getOrdersHistory() {
   let html: string
   if (USE_MOCKS) {
@@ -136,6 +140,14 @@ function extractOrderData($: cheerio.CheerioAPI, $card: cheerio.Cheerio<any>) {
     items,
   }
 }
+
+// ##################################
+// End getOrdersHistory
+// ##################################
+
+// ##################################
+// Start getCartContent
+// ##################################
 
 interface CartItem {
   title: string
@@ -264,3 +276,84 @@ function extractCartData($: cheerio.CheerioAPI): CartContent {
     totalItems,
   }
 }
+
+// ##################################
+// End getCartContent
+// ##################################
+
+// ##################################
+// Start addToCart
+// ##################################
+
+export async function addToCart(asin: string): Promise<{ success: boolean; message: string }> {
+  if (!asin || asin.length !== 10) {
+    throw new Error('Invalid ASIN provided. ASIN should be a 10-character string.')
+  }
+
+  const url = `https://www.amazon.es/-/en/gp/product/${asin}`
+  console.error(`[INFO][add-to-cart] Adding product ${asin} to cart from ${url}`)
+
+  const { browser, page } = await createBrowserAndPage()
+
+  try {
+    // Navigate to the product page
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+
+    // Handle login if needed
+    await throwIfNotLoggedIn(page)
+
+    // Wait for the page to load completely
+    await page.waitForSelector('body', { timeout: 10000 })
+
+    try {
+      // Check for subscribe and save option using XPath
+      const xpath = "//div[contains(@class, 'accordion-caption')]//span[contains(text(), 'One-time purchase')]"
+      const element = await page.waitForSelector(`::-p-xpath(${xpath})`, { timeout: 2000 })
+      if (element) {
+        console.error(`[INFO][add-to-cart] The item is a subscribe and save product, clicking the one-time purchase option`)
+        element.click()
+        // Wait for the page to update
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      } else {
+        console.error('[INFO][add-to-cart] No subscribe and save option found, proceeding to add to cart')
+      }
+    } catch (error) {
+      throw new Error(`Error checking for subscribe and save option: ${error}`)
+    }
+
+    // Find and click the add to cart button
+    try {
+      await page.waitForSelector('#add-to-cart-button', { timeout: 10000 })
+      await page.click('#add-to-cart-button')
+      console.error('[INFO][add-to-cart] Clicked add to cart button')
+    } catch (error) {
+      throw new Error(`Could not find or click the add to cart button: ${error}`)
+    }
+
+    // Wait for the confirmation page/modal
+    try {
+      await page.waitForSelector('#sw-atc-confirmation', { timeout: 15000 })
+
+      // Check for success message
+      const confirmationText = await page.$eval('#sw-atc-confirmation', el => el.textContent || '')
+
+      if (!confirmationText.includes('Added to basket')) {
+        throw new Error(`Unexpected confirmation message: ${confirmationText}`)
+      }
+
+      console.error('[INFO][add-to-cart] Successfully added product to cart')
+      return {
+        success: true,
+        message: `Product ${asin} successfully added to cart`,
+      }
+    } catch (error) {
+      throw new Error(`Could not verify that the product was added to cart: ${error}`)
+    }
+  } finally {
+    await browser.close()
+  }
+}
+
+// ##################################
+// End addToCart
+// ##################################
