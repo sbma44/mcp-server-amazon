@@ -7,8 +7,7 @@ export const IS_BROWSER_VISIBLE = true
 /** Use local mock files instead of live scraping */
 export const USE_MOCKS = false
 
-/** Export live scraping HTML to mocks for future use */
-export const EXPORT_LIVE_SCRAPING_FOR_MOCKS = true
+
 
 export const COOKIES_FILE_PATH = `${__dirname}/../amazonCookies.json`
 /**

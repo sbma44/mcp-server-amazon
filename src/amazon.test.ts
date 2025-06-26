@@ -1,4 +1,4 @@
-import { getProductDetails } from './amazon.js'
+import { getProductDetails, searchProducts } from './amazon.js'
 
 async function testGetProductDetails_regular() {
   console.log('\n\n--------------------------------------')
@@ -57,12 +57,48 @@ async function testInvalidAsin() {
   }
 }
 
+async function testSearchProducts() {
+  console.log('🧪 Testing Amazon Search Products functionality...')
+  console.log('='.repeat(50))
+
+  // Test 1: Basic search functionality
+  console.log('\n📦 Test 1: Basic search for "collagen"')
+  console.log('-'.repeat(30))
+  try {
+    const results = await searchProducts('collagen')
+    console.log(`✅ Found ${results.length} products`)
+
+    if (results.length > 0) {
+      const firstProduct = results[0]
+      console.log(`📍 First product:`)
+      console.log(`   ASIN: ${firstProduct.asin}`)
+      console.log(`   Title: ${firstProduct.title}`)
+      console.log(`   Price: ${firstProduct.price || 'N/A'}`)
+      console.log(`   Brand: ${firstProduct.brand || 'N/A'}`)
+      console.log(`   Sponsored: ${firstProduct.isSponsored}`)
+      console.log(`   Prime: ${firstProduct.isPrimeEligible}`)
+      console.log(`   Reviews: ${firstProduct.reviews?.averageRating || 'N/A'} (${firstProduct.reviews?.reviewCount || 'N/A'} reviews)`)
+      console.log(`   Delivery: ${firstProduct.deliveryInfo || 'N/A'}`)
+
+      console.log()
+      console.log()
+      console.log()
+      console.log('Logging first 5 products:')
+      console.log(results.slice(0, 5))
+    }
+  } catch (error) {
+    console.log(`❌ Error: ${error}`)
+  }
+}
+
 async function main() {
   console.log('Running getProductDetails tests...\n')
   await testGetProductDetails_regular()
   await testGetProductDetails_subscribeAndSave()
   await testInvalidAsin()
-  console.log('\nTests completed.')
+  console.log('\nRunning searchProducts tests...\n')
+  await testSearchProducts()
+  console.log('\nAll tests completed.')
 }
 
 main().catch(console.error)
