@@ -67,6 +67,4 @@ See `~/Library/Logs/Claude/mcp-server-amazon.log`
 
 ## License
 
-This is an experimental project and is not affiliated with Amazon. Use at your own risk.
-
-For now, this project is distributed under a private license. You are not permitted to use, copy, distribute, or modify this software without explicit permission from the author.
+[The MIT license](./LICENSE)
