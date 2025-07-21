@@ -15,7 +15,6 @@ export function loadAmazonCookiesFile() {
   if (fs.existsSync(COOKIES_FILE_PATH)) {
     try {
       const json = JSON.parse(fs.readFileSync(COOKIES_FILE_PATH, 'utf-8'))
-      console.error('[INFO] Loaded Amazon cookies from file')
       return json.map((cookie: any) => ({
         ...cookie,
         // Ensure sameSite is set to a valid value
@@ -44,9 +43,6 @@ export async function createBrowserAndPage(): Promise<{ browser: puppeteer.Brows
   // Set cookies if available
   if (AMAZON_COOKIES?.length > 0) {
     await browser.setCookie(...AMAZON_COOKIES)
-    console.error('[INFO] Set Amazon cookies in the browser')
-  } else {
-    console.error('[WARN] No Amazon cookies found, proceeding without them')
   }
 
   const page = await browser.newPage()
@@ -70,7 +66,6 @@ export async function createBrowserAndPage(): Promise<{ browser: puppeteer.Brows
 }
 
 export async function downloadImageAsBase64(url: string): Promise<string> {
-  console.log(`[DEBUG] Downloading image from: ${url}`)
   const response = await fetch(url)
   const arrayBuffer = await response.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)

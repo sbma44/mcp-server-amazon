@@ -48,12 +48,10 @@ export async function getProductDetails(asin: string): Promise<ProductDetails> {
 
   let html: string
   if (USE_MOCKS) {
-    console.error('[INFO][get-product-details] Fetching product details from mocks')
     const mockPath = `${__dirname}/../mocks/getProductDetails.html`
     html = fs.readFileSync(mockPath, 'utf-8')
   } else {
     const url = `https://www.amazon.com/dp/${asin}`
-        console.error(`[INFO][get-product-details] Fetching product details from ${url}`)
 
     const { browser, page } = await createBrowserAndPage()
 
@@ -136,17 +134,12 @@ async function extractProductDetailsPageData($: cheerio.CheerioAPI, asin: string
   let mainImageBase64: ProductDetails['mainImageBase64'] = undefined
   if (mainImageUrl) {
     if (USE_MOCKS) {
-      console.error('[INFO][get-product-details] Downloading product main image from mocks')
       const mockPath = `${__dirname}/../mocks/getProductDetails_image_base64.txt`
       mainImageBase64 = fs.readFileSync(mockPath, 'utf-8')
     } else {
       
     }
   }
-
-  console.error(
-    `[INFO][get-product-details] Extracted product: ASIN: ${asin}, ${title}, Price: ${price}, Can use subscribe and save: ${canUseSubscribeAndSave}, Reviews: ${reviews.averageRating} (${reviews.reviewsCount} reviews), Main image URL: ${mainImageUrl}`
-  )
 
   return {
     data: {
@@ -200,12 +193,10 @@ export async function searchProducts(searchTerm: string): Promise<ProductSearchR
 
   let html: string
   if (USE_MOCKS) {
-    console.error('[INFO][search-products] Fetching search results from mocks')
     const mockPath = `${__dirname}/../mocks/searchProducts.html`
     html = fs.readFileSync(mockPath, 'utf-8')
   } else {
-    const url = `https://www.amazon.com/dp/${asin}`
-        console.error(`[INFO][get-product-details] Fetching product details from ${url}`)
+    const url = `https://www.amazon.com/s?k=${encodeURIComponent(searchTerm)}&ref=nb_sb_noss`
 
     const { browser, page } = await createBrowserAndPage()
 
@@ -238,22 +229,17 @@ export async function searchProducts(searchTerm: string): Promise<ProductSearchR
 }
 
 function extractSearchResultsPageData($: cheerio.CheerioAPI, searchTerm: string): ProductSearchResult[] {
-  console.log(`[DEBUG] Extracting search results for term: ${searchTerm}`)
-  console.log(`[DEBUG] Extracting search results for term: ${searchTerm}`)
   const searchResults: ProductSearchResult[] = []
 
   // Find the search results using the actual Amazon structure
   const $productItems = $('[role="listitem"]')
 
   if ($productItems.length === 0) {
-    console.error('[INFO][search-products] No search results found')
     return []
   }
 
   // Limit to first 20 items
   const limitedItems = $productItems.slice(0, 20)
-
-  console.error(`[INFO][search-products] Found ${$productItems.length} products, processing first ${limitedItems.length}`)
 
   limitedItems.each((index, element) => {
     const $item = $(element)
@@ -262,14 +248,12 @@ function extractSearchResultsPageData($: cheerio.CheerioAPI, searchTerm: string)
       const productData = extractSearchResultSingleProductData($, $item)
       if (productData && productData.asin) {
         searchResults.push(productData)
-        console.error(`[INFO][search-products] Extracted product ${index + 1}: ${productData.asin} - ${productData.title}`)
       }
     } catch (error) {
-      console.error(`[INFO][search-products] Error extracting product ${index + 1}:`, error)
+      // Silently skip products that fail to extract
     }
   })
 
-  console.error(`[INFO][search-products] Successfully extracted ${searchResults.length} products for search term "${searchTerm}"`)
   return searchResults
 }
 
