@@ -37,6 +37,7 @@ interface ProductDetails {
       reviewsCount?: string
     }
     mainImageUrl?: string
+    productUrl: string
   }
   mainImageBase64?: string
 }
@@ -150,6 +151,7 @@ async function extractProductDetailsPageData($: cheerio.CheerioAPI, asin: string
       description,
       reviews,
       mainImageUrl,
+      productUrl: `https://www.amazon.com/dp/${asin}`,
     },
     mainImageBase64,
   }

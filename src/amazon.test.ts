@@ -12,8 +12,17 @@ async function testGetProductDetails_regular() {
     console.log(result.data)
 
     // Basic validation
-    if (result.data.asin === testAsin && result.data.title && result.data.price) {
-      console.log('✅ Test passed: Product details successfully retrieved')
+    if (result.data.asin === testAsin && result.data.title && result.data.price && result.data.productUrl) {
+      console.log(`✅ Test passed: Product details successfully retrieved`)
+      console.log(`   Product URL: ${result.data.productUrl}`)
+      
+      // Validate product URL format
+      const expectedUrl = `https://www.amazon.com/dp/${testAsin}`
+      if (result.data.productUrl === expectedUrl) {
+        console.log('✅ Product URL format is correct')
+      } else {
+        console.log(`❌ Product URL format incorrect. Expected: ${expectedUrl}, Got: ${result.data.productUrl}`)
+      }
     } else {
       console.log('❌ Test failed: Missing required product data')
     }
@@ -34,8 +43,17 @@ async function testGetProductDetails_subscribeAndSave() {
     console.log(result.data)
 
     // Basic validation
-    if (result.data.asin === testAsin && result.data.title && result.data.price) {
-      console.log('✅ Test passed: Product details successfully retrieved')
+    if (result.data.asin === testAsin && result.data.title && result.data.price && result.data.productUrl) {
+      console.log(`✅ Test passed: Product details successfully retrieved`)
+      console.log(`   Product URL: ${result.data.productUrl}`)
+      
+      // Validate product URL format
+      const expectedUrl = `https://www.amazon.com/dp/${testAsin}`
+      if (result.data.productUrl === expectedUrl) {
+        console.log('✅ Product URL format is correct')
+      } else {
+        console.log(`❌ Product URL format incorrect. Expected: ${expectedUrl}, Got: ${result.data.productUrl}`)
+      }
     } else {
       console.log('❌ Test failed: Missing required product data')
     }
